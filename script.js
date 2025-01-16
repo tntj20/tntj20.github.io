@@ -6,32 +6,26 @@
  */
 
 // Model URL from Teachable Machine
-
-/****************************************
-* Paste your teachable machine link below
-*
-*/
-const URL = "your teachable machine link goes here";
-
-
-
-
+//**************************************************
+//* as before, paste your lnk below
+let URL = "https://teachablemachine.withgoogle.com/models/CMBhs4EAW/";
 
 
 
 
 let model, webcam, ctx, labelContainer, maxPredictions;
 
-// State variables for pose detection
+// Dynamic pose tracking
+let poseStates = {};
 let explosionActive = false;
-let pose3ExplosionActive = false;
 let explosionSound = new Audio('explsn.mp3');
-let pose1Triggered = false;
-let pose2Triggered = false;
-let pose3FirstWindowTriggered = false;
-let pose3SecondWindowTriggered = false;
-let pose4Triggered = false;
-let pose5Triggered = false;
+
+function setModelURL(url) {
+    URL = url;
+    // Reset states when URL changes
+    poseStates = {};
+    explosionActive = false;
+}
 
 /**
  * Initialize the application
@@ -91,12 +85,8 @@ async function predict() {
                 prediction[i].className + ": " + prediction[i].probability.toFixed(2);
             labelContainer.childNodes[i].innerHTML = classPrediction;
 
-            // Check for different poses
-            checkPose1(prediction[0], video);
-            checkPose2(prediction[i], video);
-            checkPose3(prediction[i], video);
-            checkPose4(prediction[i], video);
-            checkPose5(prediction[i], video);
+            // Check pose dynamically
+            checkPose(prediction[i], video);
         }
 
         drawPose(pose, explosionActive);
@@ -105,109 +95,78 @@ async function predict() {
     }
 }
 
+function checkPose(prediction, video) {
+    const time = video.currentTime;
+    const prob = prediction.probability;
 
-/*****************************
-*
-* You can edit your video "times" in the spaces below.
-* Note that if you are doubling up on a particular pose,
-* see pose three code.  You will have to most likely modify pose three 
-* code otherwise.
-*
-*/
+    // Only respond to pose1 through pose5 labels
+    const poseNumber = prediction.className.toLowerCase().replace(/[^0-9]/g, '');
+    const isPoseLabel = prediction.className.toLowerCase().includes('pose') && poseNumber >= 1 && poseNumber <= 5;
 
-function checkPose1(prediction, video) {
-    if (prediction.className === "pose 1" && 
-        prediction.probability > 0.8 &&
-        video.currentTime >= 0.9 && 
-        video.currentTime <= 3 &&
-        !pose1Triggered &&
-        !explosionActive) {
-        explosionActive = true;
-        pose1Triggered = true;
-        playExplosionSound();
-        setTimeout(() => {
-            explosionActive = false;
-        }, 300);
+    if (!isPoseLabel) return;
+
+    if (!poseStates[`pose${poseNumber}`]) {
+        poseStates[`pose${poseNumber}`] = {
+            triggered: false,
+            firstWindowTriggered: false,
+            secondWindowTriggered: false
+        };
     }
-}
 
-function checkPose2(prediction, video) {
-    if (prediction.className === "pose 2" && 
-        prediction.probability > 0.8 &&
-        video.currentTime >= 5.5 && 
-        video.currentTime <= 7.5 &&
-        !pose2Triggered &&
-        !explosionActive) {
-        explosionActive = true;
-        pose2Triggered = true;
-        playExplosionSound();
-        setTimeout(() => {
-            explosionActive = false;
-        }, 300);
-    }
-}
+    if (prob > 0.8 && !explosionActive) {
+        const poseState = poseStates[`pose${poseNumber}`];
 
-function checkPose3(prediction, video) {
-    if (prediction.className === "pose 3" && 
-        prediction.probability > 0.8) {
-        if (video.currentTime >= 11.5 && video.currentTime <= 13 && 
-            !pose3FirstWindowTriggered && !pose3ExplosionActive) {
-            pose3ExplosionActive = true;
-            pose3FirstWindowTriggered = true;
-            playExplosionSound();
-            setTimeout(() => {
-                pose3ExplosionActive = false;
-            }, 300);
-        } else if (video.currentTime >= 17.5 && video.currentTime <= 19.5 && 
-            !pose3SecondWindowTriggered && !pose3ExplosionActive) {
-            pose3ExplosionActive = true;
-            pose3SecondWindowTriggered = true;
-            playExplosionSound();
-            setTimeout(() => {
-                pose3ExplosionActive = false;
-            }, 300);
+        switch(poseNumber) {
+            case '1':
+                if (time >= 0.9 && time <= 3.0 && !poseState.triggered) {
+                    triggerExplosion(poseState);
+                }
+                break;
+            case '2':
+                if (time >= 5.5 && time <= 7.5 && !poseState.triggered) {
+                    triggerExplosion(poseState);
+                }
+                break;
+            case '3':
+                if ((time >= 11.5 && time <= 13.0 && !poseState.firstWindowTriggered) ||
+                    (time >= 17.5 && time <= 19.5 && !poseState.secondWindowTriggered)) {
+                    if (time <= 13.0) {
+                        poseState.firstWindowTriggered = true;
+                    } else {
+                        poseState.secondWindowTriggered = true;
+                    }
+                    explosionActive = true;
+                    playExplosionSound();
+                    setTimeout(() => { explosionActive = false; }, 300);
+                }
+                break;
+            case '4':
+                if (time >= 15.5 && time <= 16.6 && !poseState.triggered) {
+                    triggerExplosion(poseState);
+                }
+                break;
+            case '5':
+                if (time >= 19.5 && !poseState.triggered) {
+                    triggerExplosion(poseState);
+                }
+                break;
         }
     }
 }
 
-function checkPose4(prediction, video) {
-    if (prediction.className === "pose 4" && 
-        prediction.probability > 0.8 &&
-        video.currentTime >= 15.5 && 
-        video.currentTime <= 16.6 &&
-        !pose4Triggered &&
-        !explosionActive) {
-        explosionActive = true;
-        pose4Triggered = true;
-        playExplosionSound();
-        setTimeout(() => {
-            explosionActive = false;
-        }, 300);
-    }
-}
-
-function checkPose5(prediction, video) {
-    if (prediction.className === "pose 5" && 
-        prediction.probability > 0.8 &&
-        video.currentTime >= 19.5 &&
-        !pose5Triggered &&
-        !explosionActive) {
-        explosionActive = true;
-        pose5Triggered = true;
-        playExplosionSound();
-        setTimeout(() => {
-            explosionActive = false;
-        }, 300);
-    }
+function triggerExplosion(poseState) {
+    explosionActive = true;
+    poseState.triggered = true;
+    playExplosionSound();
+    setTimeout(() => { explosionActive = false; }, 300);
 }
 
 function drawPose(pose, explode) {
-    const shouldExplode = explode || pose3ExplosionActive;
     if (webcam.canvas) {
         ctx.drawImage(webcam.canvas, 0, 0);
         if (pose) {
             const minPartConfidence = 0.5;
-            if (shouldExplode) {
+            if (explode) {
                 pose.keypoints.forEach(keypoint => {
                     if (keypoint.score > minPartConfidence) {
                         const scale = 3;
@@ -227,6 +186,8 @@ function drawPose(pose, explode) {
 
 async function playInstructionVideo() {
     const video = document.getElementById('instructionVideo');
+    const videoSrc = video.getAttribute('data-video-src') || 'vid.mp4';
+    video.src = videoSrc;
     const videoContainer = video.parentElement;
 
     video.addEventListener('timeupdate', () => {
@@ -270,7 +231,7 @@ async function playInstructionVideo() {
     if (model) {
         processFrame();
     } else {
-        console.log("Please start webcam first to load the model");
+        console.log("https://teachablemachine.withgoogle.com/models/CMBhs4EAW/");
     }
 }
 
