@@ -1,4 +1,3 @@
-
 /**
  * Pose Detection Application
  * Using TensorFlow.js and Teachable Machine
@@ -19,6 +18,11 @@ let model, webcam, ctx, labelContainer, maxPredictions;
 let poseStates = {};
 let explosionActive = false;
 let explosionSound = new Audio('explsn.mp3');
+let score = 0;
+
+function updateScore() {
+    document.getElementById('score').textContent = score;
+}
 
 function setModelURL(url) {
     URL = url;
@@ -158,6 +162,8 @@ function triggerExplosion(poseState) {
     explosionActive = true;
     poseState.triggered = true;
     playExplosionSound();
+    score += 1;
+    updateScore();
     setTimeout(() => { explosionActive = false; }, 300);
 }
 
@@ -249,6 +255,8 @@ function stopInstructionVideo() {
     pose3SecondWindowTriggered = false;
     pose4Triggered = false;
     pose5Triggered = false;
+    score = 0;
+    updateScore();
 }
 
 function stopWebcam() {
